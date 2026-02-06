@@ -1,117 +1,141 @@
 import tkinter as tk
 import random
 
-
-TEXT_CONTENT = "DVD" # The text the Bouncing Sentence will contain.
-FONT_STYLE = ("Times New Roman", 80, "bold") # Font, Char size and effects the Sentence will have.
-OUTLINE_COLOR = "white" # Color of the outline of our Sentence.
-OUTLINE_WIDTH = 3 # Width of the outline.
-CHANGE_COLOR_INTERVAL_MS = 800  # Time in milliseconds to change color.
-ANIMATION_SPEED_MS = 10         # Time in milliseconds between movement updates.
+TEXT_CONTENT = "N/A"
+FONT_STYLE = ("Times New Roman", 80, "bold")
+OUTLINE_COLOR = "white"
+OUTLINE_WIDTH = 3
+CHANGE_COLOR_INTERVAL_MS = 800
+ANIMATION_SPEED_MS = 10
 
 # Initial position and velocity.
 current_x, current_y = 100, 100
-velocity_x, velocity_y = 4, 4
+velocity_x, velocity_y = 5, 5
+
+# State flags for dragging.
+is_dragging = False
+drag_start_x = 0
+drag_start_y = 0
 
 def change_color():
-    #Generates a random hex color and updates the main text fill ; Recursively calls itself to create a loop.
-    # Generate a random color in hex format (e.g., #FF00AA).
-    
+    """Generates a random hex color and updates the main text fill."""
     random_color = "#%06x" % random.randint(0, 0xFFFFFF)
-    
-    # Update only the text tagged as 'main_text'.
     canvas.itemconfig("main_text", fill=random_color)
-    
-    # Schedule the next color change.
     root.after(CHANGE_COLOR_INTERVAL_MS, change_color)
 
 def animate_bounce():
-    
-    #Updates the window position based on velocity ; Handles collision detection with screen edges.
+    """Updates position based on velocity; handles collision and drag state."""
     global current_x, current_y, velocity_x, velocity_y
-    
-    # Get current screen dimensions.
+
+    # If the user is holding the text, we skip the physics update.
+    # so the window doesn't fight the mouse cursor.
+    if is_dragging:
+        root.after(ANIMATION_SPEED_MS, animate_bounce)
+        return
+
+    # Get dimensions.
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
-    
-    # Get current window dimensions.
     window_width = root.winfo_width()
     window_height = root.winfo_height()
-    
+
     # Update position.
     current_x += velocity_x
     current_y += velocity_y
-    
-    # Collision detection: Horizontal (Right or Left edge).
+
+    # Collision detection: Horizontal.
     if current_x + window_width >= screen_width or current_x <= 0:
         velocity_x = -velocity_x
-        
-    # Collision detection: Vertical (Bottom or Top edge).
+        # Clamp to screen to prevent getting stuck.
+        if current_x <= 0: current_x = 0
+        if current_x + window_width >= screen_width: current_x = screen_width - window_width
+
+    # Collision detection: Vertical.
     if current_y + window_height >= screen_height or current_y <= 0:
         velocity_y = -velocity_y
-        
+        # Clamp to screen to prevent getting stuck.
+        if current_y <= 0: current_y = 0
+        if current_y + window_height >= screen_height: current_y = screen_height - window_height
+
     # Apply new position.
-    root.geometry(f"+{current_x}+{current_y}")
+    root.geometry(f"+{int(current_x)}+{int(current_y)}")
     
-    # Schedule the next frame.
+    # Schedule next frame.
     root.after(ANIMATION_SPEED_MS, animate_bounce)
 
+'''
+Optional Drag/Release functions
+
+def start_drag(event):
+    # Called when user clicks the window.
+    global is_dragging, drag_start_x, drag_start_y, velocity_x, velocity_y
+    is_dragging = True
+    
+    # Record where inside the window we clicked, so we can drag relative to that point.
+    drag_start_x = event.x
+    drag_start_y = event.y
+    
+    # Stop movement momentarily while holding.
+    velocity_x = 0
+    velocity_y = 0
+
+def on_drag(event):
+    # Called when user moves the mouse while holding click.
+    global current_x, current_y, velocity_x, velocity_y
+    
+    # Calculate where the window should move to match the mouse root.winfo_pointerx() is the global mouse position on screen.
+    new_x = root.winfo_pointerx() - drag_start_x
+    new_y = root.winfo_pointery() - drag_start_y
+
+    # CALCULATE THROW VELOCITY
+    # The velocity is the difference between the new position and the old position.
+    # This determines how fast you were moving it when you let go.
+    velocity_x = new_x - current_x
+    velocity_y = new_y - current_y
+
+    # Update current position
+    current_x = new_x
+    current_y = new_y
+    
+    # Move the window immediately
+    root.geometry(f"+{int(current_x)}+{int(current_y)}")
+
+def end_drag(event):
+    # Called when user releases the mouse button.
+    global is_dragging
+    is_dragging = False
+    # The animate_bounce loop will now resume, picking up the 'velocity_x' and 'velocity_y' we calculated in on_drag.
+    
+'''
+
+# SETUP.
 
 root = tk.Tk()
-
-# Remove window borders and title bar.
 root.overrideredirect(True)
-
-# Keep window always on top of other windows.
 root.wm_attributes("-topmost", True)
-
-# 1. Set the background to a specific color (black).
-# 2. Tell the OS to treat that specific color as transparent (Works only on Windows).
 root.config(bg='black')
 root.attributes("-transparentcolor", "black")
 
-# Create a canvas with no border (highlightthickness=0) and transparent bg.
 canvas = tk.Canvas(root, bg='black', highlightthickness=0)
 canvas.pack(fill="both", expand=True)
 
-# Center coordinates for drawing (arbitrary starting point, resized later).
-center_x, center_y = 150, 100 
+'''
+# Optional Drag/Release Functions
+canvas.bind("<Button-1>", start_drag)        # Click down.
+canvas.bind("<B1-Motion>", on_drag)          # Drag.
+canvas.bind("<ButtonRelease-1>", end_drag)   # Release.
+'''
 
-# Draw the text multiple times in the outline color.
-# slightly offset in 4 directions.
-offsets = [
-    (-OUTLINE_WIDTH, 0), (OUTLINE_WIDTH, 0),  # Left, Right.
-    (0, -OUTLINE_WIDTH), (0, OUTLINE_WIDTH)   # Up, Down.
-]
+center_x, center_y = 150, 100 
+offsets = [(-OUTLINE_WIDTH, 0), (OUTLINE_WIDTH, 0), (0, -OUTLINE_WIDTH), (0, OUTLINE_WIDTH)]
 
 for offset_x, offset_y in offsets:
-    canvas.create_text(
-        center_x + offset_x, 
-        center_y + offset_y, 
-        text=TEXT_CONTENT, 
-        font=FONT_STYLE, 
-        fill=OUTLINE_COLOR, 
-        anchor="center"
-    )
+    canvas.create_text(center_x + offset_x, center_y + offset_y, text=TEXT_CONTENT, font=FONT_STYLE, fill=OUTLINE_COLOR, anchor="center")
 
-# Draw the actual text on top of the outlines.
-# Assigning a tag "main_text" to easily find and recolor it later.
-canvas.create_text(
-    center_x, 
-    center_y, 
-    text=TEXT_CONTENT, 
-    font=FONT_STYLE, 
-    fill='cyan', 
-    anchor="center", 
-    tag="main_text"
-)
+canvas.create_text(center_x, center_y, text=TEXT_CONTENT, font=FONT_STYLE, fill='cyan', anchor="center", tag="main_text")
 
-
-# Update idle tasks to ensure bounding boxes are calculated correctly.
 root.update_idletasks()
-
-# Resize the window to fit exactly around the drawn text.
-bbox = canvas.bbox('all') # Returns (x1, y1, x2, y2).
+bbox = canvas.bbox('all')
 root.geometry(f"{bbox[2]}x{bbox[3]}")
 
 # Start loops.
